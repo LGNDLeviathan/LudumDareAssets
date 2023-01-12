@@ -30,6 +30,11 @@ public class AudioManager : MonoBehaviour
         source.loop = looping;
     }
 
+    public void SetOnAwake(bool playOnAwake)
+    {
+        source.playOnAwake = playOnAwake; 
+    }
+
     public void SetMute(bool muted)
     {
         source.mute = muted;
@@ -40,19 +45,24 @@ public class AudioManager : MonoBehaviour
         source.volume = volume;
     }
 
-    public void PlayCLip()
+    public void PlayClip(bool isOneShot)
     {
         if(source.clip == null)
         {
             Debug.LogError("Error: No audio clip");
+            return;
         }
-        else
+        
+        if(isOneShot)
         {
-            source.Play();
+            PlayClipOneShot();
+            return;
         }
+        
+        source.Play();      
     }
 
-    public void PlayClipOneShot()
+    private void PlayClipOneShot()
     {
         if (source.clip == null)
         {
