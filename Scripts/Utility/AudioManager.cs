@@ -5,6 +5,8 @@ using UnityEngine;
 public class AudioManager : MonoBehaviour
 {
 
+    //TODO: Add ability to have list of audio sources and audio clips
+
     AudioSource source;
 
     // Start is called before the first frame update
@@ -13,9 +15,9 @@ public class AudioManager : MonoBehaviour
         source = new AudioSource();
     }
 
-    public void SetVolume(float volume)
+    public void SetAudioSource(AudioSource audioSource)
     {
-        source.volume = volume;
+        source = audioSource;
     }
 
     public void SetClip(AudioClip clip)
@@ -33,6 +35,11 @@ public class AudioManager : MonoBehaviour
         source.mute = muted;
     }
 
+    public void SetVolume(float volume)
+    {
+        source.volume = volume;
+    }
+
     public void PlayCLip()
     {
         if(source.clip == null)
@@ -43,11 +50,6 @@ public class AudioManager : MonoBehaviour
         {
             source.Play();
         }
-    }
-
-    public void SetAudioSource( AudioSource audioSource)
-    {
-        source = audioSource;
     }
 
     public void PlayClipOneShot()
