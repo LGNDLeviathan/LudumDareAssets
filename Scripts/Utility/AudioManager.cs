@@ -4,9 +4,9 @@ using UnityEngine;
 
 public class AudioManager : MonoBehaviour
 {
+    public static AudioManager instance;
 
     //TODO: Add ability to have list of audio sources and audio clips
-
     AudioSource source;
 
     // Start is called before the first frame update
