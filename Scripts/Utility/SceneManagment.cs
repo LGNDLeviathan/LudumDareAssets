@@ -6,6 +6,12 @@ using UnityEngine.SceneManagement;
 public class SceneManagment : MonoBehaviour
 {
     public static SceneManagment instance;
+
+    private void Awake()
+    {
+        instance = this; 
+    }
+
     public void QuitGame()
     {
         Application.Quit();

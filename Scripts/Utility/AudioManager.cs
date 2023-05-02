@@ -7,12 +7,17 @@ public class AudioManager : MonoBehaviour
     public static AudioManager instance;
 
     //TODO: Add ability to have list of audio sources and audio clips
-    AudioSource source;
+    public AudioSource source;
+
+    void Awake()
+    {
+        instance = this;    
+    }
 
     // Start is called before the first frame update
     void Start()
     {
-        source = new AudioSource();
+        //source = new AudioSource();
     }
 
     public void SetAudioSource(AudioSource audioSource)
@@ -28,6 +33,16 @@ public class AudioManager : MonoBehaviour
     public void SetLooping(bool looping)
     {
         source.loop = looping;
+    }
+
+    public bool IsPlaying()
+    {
+        return source.isPlaying;
+    }
+
+    public bool IsPlayingThisClip(AudioClip clip)
+    {
+        return source.isPlaying && source.clip == clip;
     }
 
     public void SetOnAwake(bool playOnAwake)
