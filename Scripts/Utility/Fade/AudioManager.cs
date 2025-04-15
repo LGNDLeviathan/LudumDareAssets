@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Net.Http;
 using UnityEngine;
 using static Unity.VisualScripting.Member;
 
@@ -9,8 +10,6 @@ public class AudioManager : MonoBehaviour
     public AudioSource sfxSource;
     public AudioSource bubbleSource;
     public AudioSource fadeSource;
-
-    private bool isMainSourceActive = true;
 
     [Header("Player")]
     public List<AudioClip> footsteps = new List<AudioClip>();
@@ -43,6 +42,8 @@ public class AudioManager : MonoBehaviour
 
     private Coroutine currentCoroutine;
 
+    public enum FadeType { None, FadeIn, CrossFade }
+
     public void Init()
     {
         Instance = this;
@@ -50,7 +51,63 @@ public class AudioManager : MonoBehaviour
         UpdateVolume(SettingsUtils.GetMasterVolume());
     }
 
-    //================================ UI =================================
+    //==================== Utility ====================
+    public bool IsClipPlaying(AudioSource source, AudioClip clip)
+    {
+        return source.isPlaying && source.clip == clip;
+    }
+
+    public void PlayMusic(AudioClip clip, FadeType fadeType = FadeType.None, float fadeTime = 2f, bool isDucking = false)
+    {
+        Play(musicSource, clip, fadeType, fadeTime, isDucking);
+    }
+
+    public void Play(AudioSource source, AudioClip clip, FadeType fadeType = FadeType.None, float fadeTime = 2f, bool isDucking = false)
+    {
+        if (source == null || clip == null)
+        {
+            Debug.LogError("ERROR: You must provide an audio source and clip to play on it");
+        }
+        if (isDucking)
+        {
+            if(fadeType != FadeType.None)
+            {
+                Debug.LogError("ERROR: Simultaneously ducking and fading is not supported!");
+            }
+            StartDuckAudio(source);
+        }
+        else if (fadeType == FadeType.FadeIn)
+        {
+            StartFadeIn(source, clip, fadeTime);
+        }
+        else if (fadeType == FadeType.CrossFade)
+        {
+            StartCrossFade(clip, fadeTime);
+        }
+        else
+        {
+            source.clip = clip;
+            source.Play();
+        }
+    }
+
+    public void Stop(AudioSource source, bool fadeOutEnabled, float fadeTime = 2f)
+    {
+        if(source == null)
+        {
+            Debug.LogError("ERROR: Must provide a source to stop playing");
+        }
+        if (fadeOutEnabled)
+        {
+            StartFadeOut(source, fadeTime);
+        }
+        else
+        {
+            source.Stop();
+        }
+    }
+
+    //==================== UI ====================
     public void PlayButtonPressedClip()
     {
         sfxSource.clip = buttonPressClip;
@@ -75,7 +132,7 @@ public class AudioManager : MonoBehaviour
         sfxSource.Play();
     }
 
-    //================================ Interaction =============================
+    //==================== Interaction ====================
     public void PlayDoorOpenClip()
     {
         sfxSource.clip = doorOpenClip;
@@ -120,13 +177,8 @@ public class AudioManager : MonoBehaviour
         sfxSource.Play();
     }
 
-    //================================ Music ==============================================
-    public void PlayMusic(AudioClip clip)
-    {
-        musicSource.clip = clip;
-        musicSource.Play();
-        //StartFadeOut(musicSource, 5);
-    }
+    //==================== Music ====================
+
     public void PlayDreamStartClip()
     {
         musicSource.clip = dreamStartClip;
@@ -152,9 +204,52 @@ public class AudioManager : MonoBehaviour
        
     }
 
-    //==================== Fading ==================
+    private void StartDuckAudio(AudioSource sourceToDuck, float duckVolumePercent = 0.3f, float duckDuration = 2f, float fadeTime = 0.5f)
+    {
+        if (currentCoroutine != null)
+        {
+            StopCoroutine(currentCoroutine);
+        }
 
-    public void StartFadeIn(AudioSource source, AudioClip clip, float duration)
+        currentCoroutine = StartCoroutine(DuckAudio(sourceToDuck, duckVolumePercent, duckDuration, fadeTime));
+    }
+
+    private IEnumerator DuckAudio(AudioSource source, float duckVolumePercent, float duckDuration, float fadeTime)
+    {
+        if (!source.isPlaying)
+        {
+            yield break;
+        }
+
+        float originalVolume = SettingsUtils.GetMasterVolume() / 3;
+        float duckVolume = originalVolume * duckVolumePercent;
+
+        for (float t = 0; t < fadeTime; t += Time.deltaTime)
+        {
+            float normalized = t / fadeTime;
+            source.volume = Mathf.Lerp(originalVolume, duckVolume, normalized);
+            yield return null;
+        }
+
+        source.volume = duckVolume;
+
+        yield return new WaitForSeconds(duckDuration);
+
+        for (float t = 0; t < fadeTime; t += Time.deltaTime)
+        {
+            float normalized = t / fadeTime;
+            source.volume = Mathf.Lerp(duckVolume, originalVolume, normalized);
+            yield return null;
+        }
+
+        source.volume = originalVolume;
+
+        currentCoroutine = null;
+    }
+
+    //==================== Fading ====================
+
+    private void StartFadeIn(AudioSource source, AudioClip clip, float duration)
     {
         if (currentCoroutine != null)
         {
@@ -165,12 +260,6 @@ public class AudioManager : MonoBehaviour
 
     private IEnumerator FadeIn(AudioSource source, AudioClip clipToFadeIn, float fadeDuration)
     {
-        if(clipToFadeIn == null)
-        {
-            Debug.LogError("ERROR: no clip to fade in");
-        }
-        //If a song is currently playing stop it. 
-        //NOTE: if you want to slowly fade out that song then use CrossFade instead of FadeIn
         source.Stop();
 
         float initialVolume = SettingsUtils.GetMasterVolume() / 3;
@@ -188,7 +277,7 @@ public class AudioManager : MonoBehaviour
         //source.volume = Mathf.Lerp(0, SettingsUtils.GetMasterVolume(), fadeDuration);
     }
 
-    public void StartFadeOut(AudioSource source, float duration)
+    private void StartFadeOut(AudioSource source, float duration)
     {
         if (currentCoroutine != null)
         {
@@ -199,11 +288,6 @@ public class AudioManager : MonoBehaviour
 
     private IEnumerator FadeOut(AudioSource source, float fadeOutDuration)
     {
-        if(source.clip == null)
-        {
-            Debug.LogError("ERROR: no clip to fade out");
-        }
-
         for(float t = 0; t < fadeOutDuration; t+= Time.deltaTime)
         {
             source.volume = Mathf.Lerp(SettingsUtils.GetMasterVolume() / 3, 0f, t / fadeOutDuration);
@@ -214,7 +298,7 @@ public class AudioManager : MonoBehaviour
         source.Stop();
     }
 
-    public void StartCrossFade(AudioClip clipToFadeIn, float fadeOutDuration)
+    private void StartCrossFade(AudioClip clipToFadeIn, float fadeOutDuration)
     {
         if (currentCoroutine != null)
         {
@@ -225,12 +309,6 @@ public class AudioManager : MonoBehaviour
 
     private IEnumerator CrossFade(AudioClip fadeInClip, float fadeDuration)
     {
-        if (fadeInClip == null)
-        {
-            Debug.LogError("CrossFade: No clip provided.");
-            yield break;
-        }
-
         AudioSource fromSource = musicSource;
         AudioSource toSource = fadeSource;
 
@@ -272,7 +350,7 @@ public class AudioManager : MonoBehaviour
         toSource.volume = toTargetVolume;
 
         // Swap roles after fade completes
-        var temp = musicSource;
+        AudioSource temp = musicSource;
         musicSource = fadeSource;
         fadeSource = temp;
 
